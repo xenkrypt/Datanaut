@@ -23,12 +23,13 @@ def missingness_heatmap(matrix: pd.DataFrame, title: str = "Where values are mis
             y=[str(i) for i in matrix.index],
             zmin=0,
             zmax=1,
-            colorscale="Blues",
+            colorscale=_SCALE,
             colorbar={"title": "Share missing"},
             hovertemplate="%{x}<br>%{y}<br>missing: %{z:.0%}<extra></extra>",
         )
     )
     fig.update_layout(
+        **_BASE,
         title=title,
         xaxis_title="Column",
         yaxis_title="Time (binned)",
@@ -55,6 +56,7 @@ def before_after(
             )
         )
     fig.update_layout(
+        **_BASE,
         title=f"{column}: before and after",
         xaxis_title="Time",
         yaxis_title=f"{column} (reading)",
@@ -66,12 +68,22 @@ def before_after(
 
 # --------------------------------------------------------------------------- analysis charts
 
-BLUE, GREY, RED, ORANGE, GREEN = "#1f6feb", "#9aa5b1", "#d1242f", "#e07b00", "#2da44e"
+BLUE, GREY, RED, ORANGE, GREEN = "#7c9cff", "#6b7385", "#ff6b6b", "#ffb454", "#4ade80"
 _MARGIN = {"l": 60, "r": 20, "t": 50, "b": 40}
+_BASE = {
+    "template": "plotly_dark",
+    "paper_bgcolor": "rgba(0,0,0,0)",
+    "plot_bgcolor": "rgba(0,0,0,0)",
+    "font": {"family": "Inter, Segoe UI, system-ui, sans-serif", "color": "#c9d1e0"},
+    "transition": {"duration": 450, "easing": "cubic-in-out"},
+    "hoverlabel": {"bgcolor": "#161b26", "bordercolor": "#2b3347"},
+}
+_SCALE = [[0.0, "#141824"], [1.0, "#7c9cff"]]
 
 
 def _layout(fig: go.Figure, title: str, x: str, y: str) -> go.Figure:
     fig.update_layout(
+        **_BASE,
         title=title,
         xaxis_title=x,
         yaxis_title=y,
@@ -143,9 +155,7 @@ def profile_heatmap(profile) -> go.Figure:
         if b.hour is not None and b.weekday is not None:
             z[b.weekday][b.hour] = b.mean
     fig = go.Figure(
-        go.Heatmap(
-            z=z, x=list(range(24)), y=days, colorscale="Blues", colorbar={"title": "Average"}
-        )
+        go.Heatmap(z=z, x=list(range(24)), y=days, colorscale=_SCALE, colorbar={"title": "Average"})
     )
     return _layout(fig, f"{profile.column}: hour and weekday", "Hour of day", "Weekday")
 
@@ -210,6 +220,7 @@ def stl_components(
         fig.update_yaxes(title_text=column if row < 3 else "Difference", row=row, col=1)
     fig.update_xaxes(title_text="Time", row=3, col=1)
     fig.update_layout(
+        **_BASE,
         title=f"{column}: trend and seasonal components",
         margin=_MARGIN,
         height=620,
@@ -400,3 +411,24 @@ def finding_chart(spec, ctx: dict) -> go.Figure | None:
     if name == "forecast_with_interval" and ctx.get("forecast") is not None and series is not None:
         return forecast_chart(series, ctx["forecast"])
     return None
+
+
+def ask_chart(card) -> go.Figure | None:
+    """The chart for an AI answer's result table (a core EvidenceCard), or None for one number."""
+    table = card.table
+    if card.chart.name == "single_value" or len(table.rows) < 2 or len(table.columns) < 2:
+        return None
+    labels = [r[0] for r in table.rows]
+    fig = go.Figure()
+    for i, name in enumerate(table.columns[1:], start=1):
+        values = [r[i] for r in table.rows]
+        if card.chart.name == "aggregate_over_time":
+            fig.add_trace(go.Scatter(x=labels, y=values, mode="lines+markers", name=name))
+        else:
+            fig.add_trace(go.Bar(x=labels, y=values, name=name))
+    return _layout(
+        fig,
+        f"{', '.join(card.columns)}: {card.method}",
+        str(table.columns[0]).capitalize(),
+        "Computed value",
+    )

@@ -12,6 +12,9 @@ from typing import Any, Literal
 
 import pandas as pd
 
+from datanaut.ai.llm import AISession
+from datanaut.ai.schemas import AnalystAnswer
+from datanaut.ai.suggest import SuggestionOutcome, SummaryOutcome
 from datanaut.core.loader import LoadResult
 from datanaut.core.log import PipelineLog
 from datanaut.core.profiler import DataProfile
@@ -19,7 +22,15 @@ from datanaut.core.timeindex import TimeIndexResult
 from datanaut.core.validation import AnyRule, ValidationReport
 from datanaut.core.versioning import VersionStore
 
-STEPS: tuple[str, ...] = ("Upload", "Profile", "Map columns", "Clean", "Analyze", "Insights")
+STEPS: tuple[str, ...] = (
+    "Upload",
+    "Profile",
+    "Map columns",
+    "Clean",
+    "Analyze",
+    "Insights",
+    "Ask",
+)
 
 _PREREQUISITES: dict[str, tuple[str, ...]] = {
     "Upload": (),
@@ -28,8 +39,9 @@ _PREREQUISITES: dict[str, tuple[str, ...]] = {
     "Clean": ("Map columns",),
     "Analyze": ("Map columns",),
     "Insights": ("Map columns",),
+    "Ask": ("Map columns",),
 }
-_MAPPING_DEPENDENTS = ("Map columns", "Clean", "Analyze", "Insights")
+_MAPPING_DEPENDENTS = ("Map columns", "Clean", "Analyze", "Insights", "Ask")
 CACHE_SIZE = 24
 
 Level = Literal["info", "success", "warning", "error"]
@@ -103,6 +115,13 @@ class WizardState:
     analysis_column: str | None = None
     weather: pd.DataFrame | None = None  # time-indexed weather the user supplied or fetched
     weather_id: str = ""  # identifies the weather in cache keys
+    ai_enabled: bool = False  # the AI analyst is opt-in for each session
+    ai_sample_rows: bool = False  # a second opt-in: send a few sample rows
+    ai_mode: str = "beginner"
+    ai_session: AISession = field(default_factory=AISession)
+    ai_history: list[tuple[str, AnalystAnswer]] = field(default_factory=list)
+    ai_suggestions: SuggestionOutcome | None = None
+    ai_summaries: dict[str, SummaryOutcome] = field(default_factory=dict)
     base_log_length: int = 0  # log entries that exist before any time index was built
 
     # --- steps ---------------------------------------------------------------------------
@@ -162,6 +181,7 @@ class WizardState:
         self.profile, self.profile_logged = None, False
         self.rules = []
         self.weather, self.weather_id, self.analysis_column = None, "", None
+        self._drop_ai()
         self._drop_mapping()
         self.log = PipelineLog()
         self.log.extend(loaded.log)
@@ -170,6 +190,11 @@ class WizardState:
         self.step = "Upload"
         if had_work:
             self.add_message("warning", "A new file was loaded, so the earlier work was discarded.")
+
+    def _drop_ai(self) -> None:
+        """Forget AI answers about the old data (the question count stays with the session)."""
+        self.ai_history, self.ai_suggestions, self.ai_summaries = [], None, {}
+        self.ai_session.cache = type(self.ai_session.cache)()
 
     def _drop_mapping(self) -> None:
         self.indexed, self.store = None, None
@@ -183,6 +208,7 @@ class WizardState:
         that depend on it, and keep the file and its profile."""
         had_versions = self.store is not None and len(self.store.history()) > 1
         self._drop_mapping()
+        self._drop_ai()
         self.log = PipelineLog(self.log.entries[: self.base_log_length])
         self.cache.clear()
         if self.step in _MAPPING_DEPENDENTS[1:]:

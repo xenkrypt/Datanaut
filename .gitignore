@@ -9,3 +9,7 @@ dist/
 .hypothesis/
 .coverage
 htmlcov/
+
+.streamlit/secrets.toml
+.env
+.claude/

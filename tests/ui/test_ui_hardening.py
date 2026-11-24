@@ -125,7 +125,7 @@ def _module_level_containers(path: Path) -> set[str]:
 def test_there_is_no_module_level_mutable_state_beyond_read_only_lookup_tables():
     files = list((ROOT / "src" / "datanaut" / "ui").rglob("*.py")) + [ROOT / "app.py"]
     found = set().union(*(_module_level_containers(f) for f in files))
-    assert found <= {"_PREREQUISITES", "_ICONS", "_PAGES", "_MARGIN"}, (
+    assert found <= {"_PREREQUISITES", "_ICONS", "_PAGES", "_MARGIN", "_BASE", "_SCALE", "_KIND"}, (
         found
     )  # fixed tables, never changed
 
@@ -167,7 +167,7 @@ def test_every_screen_opens_with_a_one_sentence_explanation():
         at = at.run()
         assert not at.exception
         assert at.header[0].value == step
-        first = at.main.markdown[0].value
+        first = next(m.value for m in at.main.markdown if "dn-board" not in m.value)
         assert first.rstrip().endswith(".") and len(first) > 30, (step, first)
         seen.append(step)
     assert seen == list(STEPS)

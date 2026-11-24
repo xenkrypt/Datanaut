@@ -5,8 +5,17 @@ from __future__ import annotations
 
 import streamlit as st
 
-from datanaut.ui import actions
-from datanaut.ui.pages import analyze, clean, insights, map_columns, profile, sidebar, upload
+from datanaut.ui import actions, overview, theme
+from datanaut.ui.pages import (
+    analyze,
+    ask,
+    clean,
+    insights,
+    map_columns,
+    profile,
+    sidebar,
+    upload,
+)
 from datanaut.ui.state import STEPS, WizardState
 
 st.set_page_config(
@@ -21,6 +30,7 @@ _PAGES = {
     "Clean": clean,
     "Analyze": analyze,
     "Insights": insights,
+    "Ask": ask,
 }
 
 
@@ -45,10 +55,15 @@ def _recovery(state: WizardState) -> None:
 
 def main() -> None:
     state = _state()
+    with st.sidebar:  # the stylesheet lives here so the main column keeps only content
+        st.markdown(theme.style_tag(), unsafe_allow_html=True)
     st.title("Datanaut")
     st.caption(
         "An AI-Powered Intelligent Platform for Time-Series Data Analysis, Analytics and Insight Generation"  # noqa: E501
     )
+    board = overview.overview_html(state)
+    if board is not None:
+        st.markdown(board, unsafe_allow_html=True)
     messages = st.container()
     page = _PAGES.get(state.step)
     if page is None:  # an unknown step can only come from a corrupted session

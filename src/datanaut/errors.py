@@ -69,3 +69,57 @@ class WeatherError(AnalysisError):
     """Weather data could not be requested, read or lined up with the series."""
 
     default_message = "The weather data could not be used."
+
+
+class AIError(DatanautError):
+    """The AI analyst could not complete a request. Messages never contain keys or data."""
+
+    default_message = "The AI analyst could not complete this request."
+
+
+class AIConfigError(AIError):
+    """No usable provider is configured (for example, no API key)."""
+
+    default_message = "No AI provider is configured. Add an API key to turn the analyst on."
+
+
+class RateLimitError(AIError):
+    """The provider is rate limiting requests."""
+
+    default_message = "The AI provider is busy right now. Wait a moment and try again."
+
+
+class ProviderTimeoutError(AIError):
+    """The provider did not answer in time."""
+
+    default_message = "The AI provider took too long to answer. Try again in a moment."
+
+
+class MalformedResponseError(AIError):
+    """The provider's reply could not be understood."""
+
+    default_message = "The AI provider sent a reply that could not be understood."
+
+
+class SafetyBlockError(AIError):
+    """The provider declined to answer."""
+
+    default_message = "The AI provider declined to answer this request."
+
+
+class ProviderError(AIError):
+    """The provider reported an error."""
+
+    default_message = "The AI provider reported an error."
+
+
+class SessionLimitError(AIError):
+    """The session's question cap or call spacing was hit."""
+
+    default_message = "The AI question limit for this session was reached."
+
+
+class QueryError(AIError):
+    """A structured query is not allowed or does not fit the data (the model may read this)."""
+
+    default_message = "The query is not valid for this data."

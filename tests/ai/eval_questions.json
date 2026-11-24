@@ -1,0 +1,1160 @@
+[
+ {
+  "id": "mean_power",
+  "question": "What is the average power?",
+  "category": "aggregation",
+  "reference_query": {
+   "value_columns": [
+    "global_active_power"
+   ],
+   "aggregation": "mean"
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "all",
+    "global_active_power"
+   ],
+   "rows": [
+    [
+     "all rows",
+     0.9274766986837425
+    ]
+   ]
+  }
+ },
+ {
+  "id": "max_power",
+  "question": "What was the highest power reading?",
+  "category": "aggregation",
+  "reference_query": {
+   "value_columns": [
+    "global_active_power"
+   ],
+   "aggregation": "max"
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "all",
+    "global_active_power"
+   ],
+   "rows": [
+    [
+     "all rows",
+     6.558
+    ]
+   ]
+  }
+ },
+ {
+  "id": "min_voltage",
+  "question": "What is the lowest voltage?",
+  "category": "aggregation",
+  "reference_query": {
+   "value_columns": [
+    "voltage"
+   ],
+   "aggregation": "min"
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "all",
+    "voltage"
+   ],
+   "rows": [
+    [
+     "all rows",
+     233.81
+    ]
+   ]
+  }
+ },
+ {
+  "id": "median_temp",
+  "question": "What is the median outdoor temperature?",
+  "category": "aggregation",
+  "reference_query": {
+   "value_columns": [
+    "outdoor_temp"
+   ],
+   "aggregation": "median"
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "all",
+    "outdoor_temp"
+   ],
+   "rows": [
+    [
+     "all rows",
+     7.4
+    ]
+   ]
+  }
+ },
+ {
+  "id": "std_intensity",
+  "question": "How variable is the intensity (standard deviation)?",
+  "category": "aggregation",
+  "reference_query": {
+   "value_columns": [
+    "global_intensity"
+   ],
+   "aggregation": "std"
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "all",
+    "global_intensity"
+   ],
+   "rows": [
+    [
+     "all rows",
+     1.258081689281565
+    ]
+   ]
+  }
+ },
+ {
+  "id": "sum_power",
+  "question": "What is the total power over the whole period?",
+  "category": "aggregation",
+  "reference_query": {
+   "value_columns": [
+    "global_active_power"
+   ],
+   "aggregation": "sum"
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "all",
+    "global_active_power"
+   ],
+   "rows": [
+    [
+     "all rows",
+     2607.137
+    ]
+   ]
+  }
+ },
+ {
+  "id": "count_voltage",
+  "question": "How many voltage readings are there?",
+  "category": "count",
+  "reference_query": {
+   "value_columns": [
+    "voltage"
+   ],
+   "aggregation": "count"
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "all",
+    "voltage"
+   ],
+   "rows": [
+    [
+     "all rows",
+     2840.0
+    ]
+   ]
+  }
+ },
+ {
+  "id": "p90_power",
+  "question": "What is the 90th percentile of power?",
+  "category": "aggregation",
+  "reference_query": {
+   "value_columns": [
+    "global_active_power"
+   ],
+   "aggregation": "quantile",
+   "q": 0.9
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "all",
+    "global_active_power"
+   ],
+   "rows": [
+    [
+     "all rows",
+     1.373
+    ]
+   ]
+  }
+ },
+ {
+  "id": "power_by_hour",
+  "question": "What is the average power for each hour of the day?",
+  "category": "group_hour",
+  "reference_query": {
+   "value_columns": [
+    "global_active_power"
+   ],
+   "group_by": "hour",
+   "aggregation": "mean",
+   "limit": 100
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "hour",
+    "global_active_power"
+   ],
+   "rows": [
+    [
+     "00:00",
+     0.8189130434782609
+    ],
+    [
+     "01:00",
+     0.7874035087719298
+    ],
+    [
+     "02:00",
+     0.8306607142857143
+    ],
+    [
+     "03:00",
+     0.7902413793103449
+    ],
+    [
+     "04:00",
+     0.7926186440677966
+    ],
+    [
+     "05:00",
+     0.802025641025641
+    ],
+    [
+     "06:00",
+     0.9186694915254238
+    ],
+    [
+     "07:00",
+     1.1014568965517242
+    ],
+    [
+     "08:00",
+     1.0894406779661017
+    ],
+    [
+     "09:00",
+     0.8384873949579832
+    ],
+    [
+     "10:00",
+     0.7311525423728813
+    ],
+    [
+     "11:00",
+     0.6817478991596638
+    ],
+    [
+     "12:00",
+     0.6705391304347825
+    ],
+    [
+     "13:00",
+     0.6497264957264958
+    ],
+    [
+     "14:00",
+     0.6605391304347826
+    ],
+    [
+     "15:00",
+     0.7292051282051282
+    ],
+    [
+     "16:00",
+     0.8488583333333334
+    ],
+    [
+     "17:00",
+     1.1177563025210084
+    ],
+    [
+     "18:00",
+     1.4171810344827587
+    ],
+    [
+     "19:00",
+     1.5640083333333334
+    ],
+    [
+     "20:00",
+     1.451957627118644
+    ],
+    [
+     "21:00",
+     1.1744700854700856
+    ],
+    [
+     "22:00",
+     0.9515042016806723
+    ],
+    [
+     "23:00",
+     0.8126101694915254
+    ]
+   ]
+  }
+ },
+ {
+  "id": "max_power_by_hour",
+  "question": "What is the highest power in each hour of the day?",
+  "category": "group_hour",
+  "reference_query": {
+   "value_columns": [
+    "global_active_power"
+   ],
+   "group_by": "hour",
+   "aggregation": "max",
+   "limit": 100
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "hour",
+    "global_active_power"
+   ],
+   "rows": [
+    [
+     "00:00",
+     6.558
+    ],
+    [
+     "01:00",
+     1.097
+    ],
+    [
+     "02:00",
+     5.095
+    ],
+    [
+     "03:00",
+     1.071
+    ],
+    [
+     "04:00",
+     1.06
+    ],
+    [
+     "05:00",
+     1.077
+    ],
+    [
+     "06:00",
+     1.225
+    ],
+    [
+     "07:00",
+     1.396
+    ],
+    [
+     "08:00",
+     1.363
+    ],
+    [
+     "09:00",
+     1.131
+    ],
+    [
+     "10:00",
+     3.793
+    ],
+    [
+     "11:00",
+     0.999
+    ],
+    [
+     "12:00",
+     2.983
+    ],
+    [
+     "13:00",
+     0.929
+    ],
+    [
+     "14:00",
+     0.989
+    ],
+    [
+     "15:00",
+     4.122
+    ],
+    [
+     "16:00",
+     1.116
+    ],
+    [
+     "17:00",
+     1.357
+    ],
+    [
+     "18:00",
+     1.662
+    ],
+    [
+     "19:00",
+     1.823
+    ],
+    [
+     "20:00",
+     1.785
+    ],
+    [
+     "21:00",
+     1.475
+    ],
+    [
+     "22:00",
+     1.318
+    ],
+    [
+     "23:00",
+     1.163
+    ]
+   ]
+  }
+ },
+ {
+  "id": "voltage_by_hour",
+  "question": "Show the average voltage by hour of day.",
+  "category": "group_hour",
+  "reference_query": {
+   "value_columns": [
+    "voltage"
+   ],
+   "group_by": "hour",
+   "aggregation": "mean",
+   "limit": 100
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "hour",
+    "voltage"
+   ],
+   "rows": [
+    [
+     "00:00",
+     240.0445299145299
+    ],
+    [
+     "01:00",
+     240.810593220339
+    ],
+    [
+     "02:00",
+     241.5426495726496
+    ],
+    [
+     "03:00",
+     242.2764957264957
+    ],
+    [
+     "04:00",
+     242.51612068965517
+    ],
+    [
+     "05:00",
+     242.89033898305087
+    ],
+    [
+     "06:00",
+     243.10949579831933
+    ],
+    [
+     "07:00",
+     242.77525423728812
+    ],
+    [
+     "08:00",
+     242.55410256410258
+    ],
+    [
+     "09:00",
+     242.17176470588234
+    ],
+    [
+     "10:00",
+     241.46791666666667
+    ],
+    [
+     "11:00",
+     240.6375833333333
+    ],
+    [
+     "12:00",
+     239.82135593220337
+    ],
+    [
+     "13:00",
+     239.3127118644068
+    ],
+    [
+     "14:00",
+     238.6777118644068
+    ],
+    [
+     "15:00",
+     238.06542372881356
+    ],
+    [
+     "16:00",
+     237.45605042016808
+    ],
+    [
+     "17:00",
+     237.15441666666666
+    ],
+    [
+     "18:00",
+     236.9576470588235
+    ],
+    [
+     "19:00",
+     237.11361344537815
+    ],
+    [
+     "20:00",
+     237.37823529411764
+    ],
+    [
+     "21:00",
+     237.91596638655463
+    ],
+    [
+     "22:00",
+     238.44201680672268
+    ],
+    [
+     "23:00",
+     239.13830508474575
+    ]
+   ]
+  }
+ },
+ {
+  "id": "power_by_weekday",
+  "question": "What is the average power on each weekday?",
+  "category": "group_weekday",
+  "reference_query": {
+   "value_columns": [
+    "global_active_power"
+   ],
+   "group_by": "weekday",
+   "aggregation": "mean"
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "weekday",
+    "global_active_power"
+   ],
+   "rows": [
+    [
+     "Monday",
+     0.8651271393643032
+    ],
+    [
+     "Tuesday",
+     0.865818407960199
+    ],
+    [
+     "Wednesday",
+     0.8797930174563592
+    ],
+    [
+     "Thursday",
+     0.8616318407960198
+    ],
+    [
+     "Friday",
+     0.8764520202020202
+    ],
+    [
+     "Saturday",
+     1.076774193548387
+    ],
+    [
+     "Sunday",
+     1.0679723618090453
+    ]
+   ]
+  }
+ },
+ {
+  "id": "sum_power_by_weekday",
+  "question": "What is the total power for each day of the week?",
+  "category": "group_weekday",
+  "reference_query": {
+   "value_columns": [
+    "global_active_power"
+   ],
+   "group_by": "weekday",
+   "aggregation": "sum"
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "weekday",
+    "global_active_power"
+   ],
+   "rows": [
+    [
+     "Monday",
+     353.837
+    ],
+    [
+     "Tuesday",
+     348.059
+    ],
+    [
+     "Wednesday",
+     352.797
+    ],
+    [
+     "Thursday",
+     346.376
+    ],
+    [
+     "Friday",
+     347.075
+    ],
+    [
+     "Saturday",
+     433.94
+    ],
+    [
+     "Sunday",
+     425.053
+    ]
+   ]
+  }
+ },
+ {
+  "id": "temp_by_weekday",
+  "question": "What is the average outdoor temperature by weekday?",
+  "category": "group_weekday",
+  "reference_query": {
+   "value_columns": [
+    "outdoor_temp"
+   ],
+   "group_by": "weekday",
+   "aggregation": "mean"
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "weekday",
+    "outdoor_temp"
+   ],
+   "rows": [
+    [
+     "Monday",
+     7.449880095923262
+    ],
+    [
+     "Tuesday",
+     7.240731707317073
+    ],
+    [
+     "Wednesday",
+     7.385049019607843
+    ],
+    [
+     "Thursday",
+     7.403676470588235
+    ],
+    [
+     "Friday",
+     7.418581907090464
+    ],
+    [
+     "Saturday",
+     7.452439024390244
+    ],
+    [
+     "Sunday",
+     7.470689655172413
+    ]
+   ]
+  }
+ },
+ {
+  "id": "power_by_month",
+  "question": "What is the average power in each month?",
+  "category": "group_month",
+  "reference_query": {
+   "value_columns": [
+    "global_active_power"
+   ],
+   "group_by": "month",
+   "aggregation": "mean"
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "month",
+    "global_active_power"
+   ],
+   "rows": [
+    [
+     "2024-01",
+     0.964295890410959
+    ],
+    [
+     "2024-02",
+     0.9386166419019316
+    ],
+    [
+     "2024-03",
+     0.922191933240612
+    ],
+    [
+     "2024-04",
+     0.883100145137881
+    ]
+   ]
+  }
+ },
+ {
+  "id": "power_when_cold",
+  "question": "What is the average power when it is below 5 degrees outside?",
+  "category": "filter",
+  "reference_query": {
+   "value_columns": [
+    "global_active_power"
+   ],
+   "aggregation": "mean",
+   "filters": [
+    {
+     "column": "outdoor_temp",
+     "operator": "<",
+     "value": "5"
+    }
+   ]
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "all",
+    "global_active_power"
+   ],
+   "rows": [
+    [
+     "all rows",
+     0.8716773743016761
+    ]
+   ]
+  }
+ },
+ {
+  "id": "count_high_power",
+  "question": "How many readings have power above 2?",
+  "category": "filter",
+  "reference_query": {
+   "value_columns": [
+    "global_active_power"
+   ],
+   "aggregation": "count",
+   "filters": [
+    {
+     "column": "global_active_power",
+     "operator": ">",
+     "value": "2"
+    }
+   ]
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "all",
+    "global_active_power"
+   ],
+   "rows": [
+    [
+     "all rows",
+     5.0
+    ]
+   ]
+  }
+ },
+ {
+  "id": "evening_voltage",
+  "question": "What is the average voltage between 18:00 and 20:00?",
+  "category": "filter",
+  "reference_query": {
+   "value_columns": [
+    "voltage"
+   ],
+   "aggregation": "mean",
+   "filters": [
+    {
+     "column": "hour",
+     "operator": "between",
+     "values": [
+      "18",
+      "20"
+     ]
+    }
+   ]
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "all",
+    "voltage"
+   ],
+   "rows": [
+    [
+     "all rows",
+     237.14983193277308
+    ]
+   ]
+  }
+ },
+ {
+  "id": "weekday_weekend_power",
+  "question": "Is power higher on weekdays or weekends? Compare the averages.",
+  "category": "compare",
+  "reference_query": {
+   "value_columns": [
+    "global_active_power"
+   ],
+   "aggregation": "mean",
+   "compare": {
+    "label_a": "weekday",
+    "filters_a": [
+     {
+      "column": "weekday",
+      "operator": "between",
+      "values": [
+       "0",
+       "4"
+      ]
+     }
+    ],
+    "label_b": "weekend",
+    "filters_b": [
+     {
+      "column": "weekday",
+      "operator": "in",
+      "values": [
+       "5",
+       "6"
+      ]
+     }
+    ]
+   }
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "group",
+    "global_active_power"
+   ],
+   "rows": [
+    [
+     "weekday",
+     0.869723383084577
+    ],
+    [
+     "weekend",
+     1.0724007490636704
+    ]
+   ]
+  }
+ },
+ {
+  "id": "weekday_weekend_voltage",
+  "question": "Compare the average voltage on weekdays and weekends.",
+  "category": "compare",
+  "reference_query": {
+   "value_columns": [
+    "voltage"
+   ],
+   "aggregation": "mean",
+   "compare": {
+    "label_a": "weekday",
+    "filters_a": [
+     {
+      "column": "weekday",
+      "operator": "between",
+      "values": [
+       "0",
+       "4"
+      ]
+     }
+    ],
+    "label_b": "weekend",
+    "filters_b": [
+     {
+      "column": "weekday",
+      "operator": "in",
+      "values": [
+       "5",
+       "6"
+      ]
+     }
+    ]
+   }
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "group",
+    "voltage"
+   ],
+   "rows": [
+    [
+     "weekday",
+     239.99024630541874
+    ],
+    [
+     "weekend",
+     240.0303580246914
+    ]
+   ]
+  }
+ },
+ {
+  "id": "top3_days_power",
+  "question": "Which 3 days had the highest average power?",
+  "category": "top_n",
+  "reference_query": {
+   "value_columns": [
+    "global_active_power"
+   ],
+   "group_by": "date",
+   "aggregation": "mean",
+   "sort": "desc",
+   "limit": 3
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "date",
+    "global_active_power"
+   ],
+   "rows": [
+    [
+     "2024-01-27",
+     1.3460434782608695
+    ],
+    [
+     "2024-01-14",
+     1.1483478260869564
+    ],
+    [
+     "2024-01-07",
+     1.1159999999999999
+    ]
+   ]
+  }
+ },
+ {
+  "id": "top5_peak_days",
+  "question": "Which 5 days had the highest peak power reading?",
+  "category": "top_n",
+  "reference_query": {
+   "value_columns": [
+    "global_active_power"
+   ],
+   "group_by": "date",
+   "aggregation": "max",
+   "sort": "desc",
+   "limit": 5
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "date",
+    "global_active_power"
+   ],
+   "rows": [
+    [
+     "2024-01-27",
+     6.558
+    ],
+    [
+     "2024-01-24",
+     5.095
+    ],
+    [
+     "2024-02-16",
+     4.122
+    ],
+    [
+     "2024-03-27",
+     3.793
+    ],
+    [
+     "2024-04-26",
+     2.983
+    ]
+   ]
+  }
+ },
+ {
+  "id": "coldest_days",
+  "question": "Which 3 days were the coldest on average?",
+  "category": "top_n",
+  "reference_query": {
+   "value_columns": [
+    "outdoor_temp"
+   ],
+   "group_by": "date",
+   "aggregation": "mean",
+   "sort": "asc",
+   "limit": 3
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "date",
+    "outdoor_temp"
+   ],
+   "rows": [
+    [
+     "2024-01-06",
+     5.033333333333333
+    ],
+    [
+     "2024-01-09",
+     5.045833333333333
+    ],
+    [
+     "2024-01-02",
+     5.05
+    ]
+   ]
+  }
+ },
+ {
+  "id": "january_power",
+  "question": "What was the average power in January 2024?",
+  "category": "time_scope",
+  "reference_query": {
+   "value_columns": [
+    "global_active_power"
+   ],
+   "aggregation": "mean",
+   "time_scope": {
+    "start": "2024-01-01",
+    "end": "2024-01-31"
+   }
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "all",
+    "global_active_power"
+   ],
+   "rows": [
+    [
+     "all rows",
+     0.964295890410959
+    ]
+   ]
+  }
+ },
+ {
+  "id": "march_max_temp",
+  "question": "What was the maximum temperature between 1 and 15 March 2024?",
+  "category": "time_scope",
+  "reference_query": {
+   "value_columns": [
+    "outdoor_temp"
+   ],
+   "aggregation": "max",
+   "time_scope": {
+    "start": "2024-03-01",
+    "end": "2024-03-15"
+   }
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "all",
+    "outdoor_temp"
+   ],
+   "rows": [
+    [
+     "all rows",
+     13.5
+    ]
+   ]
+  }
+ },
+ {
+  "id": "count_evening",
+  "question": "How many readings were taken between 18:00 and 22:00?",
+  "category": "count",
+  "reference_query": {
+   "value_columns": [
+    "global_active_power"
+   ],
+   "aggregation": "count",
+   "filters": [
+    {
+     "column": "hour",
+     "operator": "between",
+     "values": [
+      "18",
+      "22"
+     ]
+    }
+   ]
+  },
+  "expect": {
+   "type": "table",
+   "columns": [
+    "all",
+    "global_active_power"
+   ],
+   "rows": [
+    [
+     "all rows",
+     590.0
+    ]
+   ]
+  }
+ },
+ {
+  "id": "refuse_code",
+  "question": "Write me a Python script that cleans this file.",
+  "category": "out_of_scope",
+  "expect": {
+   "type": "refusal"
+  }
+ },
+ {
+  "id": "refuse_internet",
+  "question": "Look up tomorrow's weather in Berlin on the internet.",
+  "category": "out_of_scope",
+  "expect": {
+   "type": "refusal"
+  }
+ },
+ {
+  "id": "refuse_chat",
+  "question": "Tell me a joke about cats.",
+  "category": "out_of_scope",
+  "expect": {
+   "type": "refusal"
+  }
+ }
+]

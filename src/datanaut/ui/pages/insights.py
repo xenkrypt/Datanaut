@@ -5,8 +5,8 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from datanaut.ui import actions, analysis, charts
-from datanaut.ui.pages.common import evidence_box, timing
+from datanaut.ui import actions, analysis, ask, charts
+from datanaut.ui.pages.common import ai_client, ai_configured, evidence_box, timing
 from datanaut.ui.state import WizardState
 
 STEP = "Insights"
@@ -248,3 +248,30 @@ def _investigate(state: WizardState) -> None:
     )
     st.info(res.conclusion)
     evidence_box(res)
+    _explain(state, res)
+
+
+def _explain(state: WizardState, res) -> None:
+    """An optional plain-language summary of the investigation (needs the AI analyst on)."""
+    if not state.ai_enabled:
+        st.caption("Turn on the AI analyst on the Ask screen to get a plain-language summary.")
+        return
+    if st.button("Explain this investigation", key="ai_explain", disabled=not ai_configured()):
+        with st.spinner("Thinking..."):
+            client = actions.guard(state, STEP, ai_client)
+            if client is not None:
+                actions.guard(state, STEP, ask.explain_investigation, state, res, client)
+    shown = state.ai_summaries.get(ask.summary_key(state, res))
+    if shown is None:
+        return
+    st.write(shown.text)
+    if shown.templated:
+        st.caption(
+            "Written by the app from the computed results (the AI text did not pass checks)."
+        )
+    elif shown.rewritten:
+        st.caption(
+            "The first wording had a figure that was not in the results, so it was rewritten."
+        )
+    elif shown.provider:
+        st.caption(f"Answered by {shown.provider}. Only computed results were used.")

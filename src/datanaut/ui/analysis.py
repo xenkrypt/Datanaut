@@ -439,6 +439,11 @@ def run_investigation(
     end: str | pd.Timestamp,
     baseline: Literal["previous", "same_weekdays"],
 ) -> Run:
+    if frame(state).index.has_duplicates:
+        raise AnalysisError(
+            "The data has repeated timestamps, which the investigation cannot compare. "
+            "Apply the duplicate-removal fix on the Clean screen first."
+        )
     others = [c for c in state.value_columns if c != column(state)] or None
     cps = _cached_change_points(state)
     cp = cps[0] if cps else None

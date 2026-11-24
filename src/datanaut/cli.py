@@ -42,7 +42,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="datanaut",
         description=_DESCRIPTION,
-        epilog="Commands: profile, clean (record a recipe), replay (verify), analyze (findings).",
+        epilog=(
+            "Commands: profile, clean (record a recipe), replay (verify), analyze (findings), "
+            "eval-ai (check the AI analyst)."
+        ),
     )
     parser.add_argument("--version", action="version", version=f"datanaut {datanaut.__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -121,6 +124,21 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="CSV",
         help="local weather CSV: first column time, other columns numeric",
     )
+
+    ev = sub.add_parser(
+        "eval-ai",
+        help="measure the AI analyst against ground truth (calls a real provider)",
+        description=(
+            "Ask the evaluation questions about the sample dataset through a real provider "
+            "and score the answers against answers computed in pandas. Needs GEMINI_API_KEY or "
+            "GROQ_API_KEY in the environment. It makes network calls and is not run in tests."
+        ),
+    )
+    ev.add_argument("--provider", required=True, choices=["gemini", "groq"])
+    ev.add_argument("--questions", type=Path, metavar="JSON", help="question file to use")
+    ev.add_argument("--file", type=Path, metavar="PATH", help="dataset to ask about")
+    ev.add_argument("--mode", choices=["beginner", "analyst"], default="analyst")
+    ev.add_argument("--pause", type=float, default=2.0, help="seconds to wait between questions")
     return parser
 
 
@@ -555,6 +573,38 @@ def _run_analyze(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_eval_ai(args: argparse.Namespace) -> int:
+    import os
+
+    from datanaut.ai import config
+    from datanaut.ai.evaluate import (
+        default_questions_path,
+        format_report,
+        load_eval_frame,
+        load_questions,
+        report_json,
+        run_eval,
+        summarize,
+    )
+    from datanaut.ai.llm import GeminiClient, GroqClient, urllib_transport
+    from datanaut.errors import AIConfigError
+
+    name = config.KEY_NAMES[args.provider]
+    key = os.environ.get(name, "")
+    if not key:
+        raise AIConfigError(f"Set {name} in your environment to run the evaluation.")
+    builder = GeminiClient if args.provider == "gemini" else GroqClient
+    client = builder(key, urllib_transport)
+    questions = load_questions(args.questions or default_questions_path())
+    df = load_eval_frame(args.file)
+    results = run_eval(questions, df, client, mode=args.mode, pause=args.pause)
+    summary = summarize(results)
+    print(format_report(summary, results))
+    print()
+    print(report_json(summary, results))
+    return 0
+
+
 def _write_log(args: argparse.Namespace, log: PipelineLog) -> None:
     if args.log_json:
         args.log_json.write_text(log.to_json(), encoding="utf-8")
@@ -568,6 +618,7 @@ def main(argv: list[str] | None = None) -> int:
         "clean": _run_clean,
         "replay": _run_replay,
         "analyze": _run_analyze,
+        "eval-ai": _run_eval_ai,
     }
     try:
         return handlers[args.command](args)
