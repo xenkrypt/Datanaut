@@ -1,4 +1,4 @@
-"""Command-line interface: `python -m datanaut profile <file>`.
+"""Command-line interface: `python -m datanaut profile|clean|replay`.
 
 This module only wires the core functions together and prints their results.
 """
@@ -11,6 +11,8 @@ from pathlib import Path
 
 import datanaut
 from datanaut.core.characterize import SeriesCharacterization, characterize
+from datanaut.core.cleaner import propose_fixes
+from datanaut.core.export import write_safe_csv
 from datanaut.core.loader import LoadResult, load_file
 from datanaut.core.log import PipelineLog
 from datanaut.core.profiler import DataProfile, profile
@@ -20,7 +22,9 @@ from datanaut.core.timeindex import (
     detect_time_columns,
     detect_value_columns,
 )
-from datanaut.errors import DatanautError
+from datanaut.core.validation import RuleSet, ValidationReport, validate
+from datanaut.core.versioning import Recipe, VersionStore, replay_recipe
+from datanaut.errors import DatanautError, ParseError, VersioningError
 
 # The project title, kept on one line so it can be found with a plain text search.
 _DESCRIPTION = "An AI-Powered Intelligent Platform for Time-Series Data Analysis, Analytics and Insight Generation"  # noqa: E501
@@ -31,7 +35,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="datanaut",
         description=_DESCRIPTION,
-        epilog="Phase 1: load, time index, profile and series characterization.",
+        epilog="Commands: profile (diagnose), clean (fix, record a recipe), replay (verify it).",
     )
     parser.add_argument("--version", action="version", version=f"datanaut {datanaut.__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -40,6 +44,50 @@ def build_parser() -> argparse.ArgumentParser:
         help="load a CSV or Excel file and print a data-quality and characterization summary",
         description="Load a file, build its time index, profile it and characterize one series.",
     )
+    _add_source_options(p)
+    p.add_argument("--log-json", type=Path, metavar="PATH", help="also write the pipeline log here")
+
+    c = sub.add_parser(
+        "clean",
+        help="apply the default-selected fixes, then write a recipe and the cleaned CSV",
+        description=(
+            "Load a file, propose fixes, apply only the conservative default-selected ones "
+            "(exact duplicates and short-gap interpolation) and write a replayable recipe."
+        ),
+    )
+    _add_source_options(c)
+    c.add_argument(
+        "--recipe-out", type=Path, required=True, metavar="PATH", help="write the recipe JSON here"
+    )
+    c.add_argument(
+        "--rules",
+        type=Path,
+        metavar="PATH",
+        help="validate the cleaned data against this rule file",
+    )
+    c.add_argument(
+        "--cleaned-out", type=Path, metavar="PATH", help="write the cleaned data as CSV here"
+    )
+    c.add_argument(
+        "--strict",
+        action="store_true",
+        help="with --rules: exit with code 3 if an error-severity rule is not satisfied",
+    )
+
+    r = sub.add_parser(
+        "replay",
+        help="rebuild a cleaned dataset from a recipe and verify every fingerprint",
+        description="Re-run a recipe on the original file; any difference in the data is reported.",
+    )
+    r.add_argument("file", type=Path, help="the original CSV or Excel (.xlsx) file")
+    r.add_argument("recipe", type=Path, help="recipe JSON written by the clean command")
+    r.add_argument(
+        "--cleaned-out", type=Path, metavar="PATH", help="write the rebuilt data as CSV here"
+    )
+    return parser
+
+
+def _add_source_options(p: argparse.ArgumentParser) -> None:
     p.add_argument("file", type=Path, help="path to a CSV or Excel (.xlsx) file")
     p.add_argument("--sheet", help="Excel sheet name or number (default: the first sheet)")
     p.add_argument(
@@ -52,8 +100,6 @@ def build_parser() -> argparse.ArgumentParser:
     order = p.add_mutually_exclusive_group()
     order.add_argument("--dayfirst", action="store_true", help="read 01/02/2024 as 1 February")
     order.add_argument("--monthfirst", action="store_true", help="read 01/02/2024 as 2 January")
-    p.add_argument("--log-json", type=Path, metavar="PATH", help="also write the pipeline log here")
-    return parser
 
 
 def _fmt(value: float | None, digits: int = 3) -> str:
@@ -169,35 +215,47 @@ def _render_log(log: PipelineLog) -> list[str]:
     return lines
 
 
+def _sheet_arg(value: str | None) -> str | int | None:
+    return int(value) if isinstance(value, str) and value.lstrip("-").isdigit() else value
+
+
+def _dayfirst_arg(args: argparse.Namespace) -> bool | None:
+    return True if args.dayfirst else (False if args.monthfirst else None)
+
+
+def _pick_time_columns(chosen: list[str] | None, loaded: LoadResult) -> list[str]:
+    if chosen:
+        return chosen
+    candidates = detect_time_columns(loaded.df)
+    if not candidates:
+        raise ParseError("No timestamp column was found. Use --time-col to choose one.")
+    return candidates[0].columns
+
+
+def _print_ambiguity(indexed: TimeIndexResult) -> None:
+    print("\nThe dates are ambiguous: day-first and month-first both parse but differ.")
+    for sample in indexed.flags.ambiguous_preview:
+        print(
+            f"  {sample.raw!r}: day-first -> {sample.dayfirst}, month-first -> {sample.monthfirst}"
+        )
+    print("Re-run with --dayfirst or --monthfirst.")
+
+
 def _run_profile(args: argparse.Namespace) -> int:
-    sheet: str | int | None = args.sheet
-    if isinstance(sheet, str) and sheet.lstrip("-").isdigit():
-        sheet = int(sheet)
-    dayfirst = True if args.dayfirst else (False if args.monthfirst else None)
+    sheet = _sheet_arg(args.sheet)
+    dayfirst = _dayfirst_arg(args)
 
     loaded = load_file(args.file, sheet=sheet)
     log = PipelineLog()
     log.extend(loaded.log)
     out = _render_source(loaded)
 
-    time_cols = args.time_col
-    if not time_cols:
-        candidates = detect_time_columns(loaded.df)
-        if not candidates:
-            print("No timestamp column was found. Use --time-col to choose one.", file=sys.stderr)
-            return 1
-        time_cols = candidates[0].columns
+    time_cols = _pick_time_columns(args.time_col, loaded)
     indexed = build_time_index(loaded.df, time_cols, dayfirst)
     log.extend(indexed.log)
     if indexed.flags.ambiguous:
         print("\n".join(out + _render_log(log)))
-        print("\nThe dates are ambiguous: day-first and month-first both parse but differ.")
-        for sample in indexed.flags.ambiguous_preview:
-            print(
-                f"  {sample.raw!r}: day-first -> {sample.dayfirst}, "
-                f"month-first -> {sample.monthfirst}"
-            )
-        print("Re-run with --dayfirst or --monthfirst.")
+        _print_ambiguity(indexed)
         _write_log(args, log)
         return 2
     out += _render_index(indexed)
@@ -223,6 +281,137 @@ def _run_profile(args: argparse.Namespace) -> int:
     return 0
 
 
+def _render_versions(store: VersionStore) -> list[str]:
+    lines = _section("Versions")
+    for node in store.history():
+        v = node.version
+        what = v.op.operation if v.op else "raw data"
+        head = "  <- head" if node.is_head else ""
+        lines.append(
+            f"{'  ' * node.depth}{v.version_id}  {what}  {v.fingerprint[:12]}  "
+            f"{v.rows:,} rows x {v.columns} columns{head}"
+        )
+    return lines
+
+
+def _render_validation(report: ValidationReport) -> list[str]:
+    lines = _section(f"Validation against '{report.ruleset_name}' v{report.ruleset_version}")
+    for r in report.results:
+        mark = {"pass": "PASS", "fail": "FAIL", "not_evaluated": "SKIP"}[r.status]
+        detail = "" if r.status == "pass" else f": {r.violations} violation(s). {r.message}"
+        lines.append(f"[{mark}] ({r.severity}) {r.name}{detail}")
+    lines.append(
+        "all error-severity rules passed" if report.ok else "some error-severity rules did not pass"
+    )
+    return lines
+
+
+def _run_clean(args: argparse.Namespace) -> int:
+    if args.strict and not args.rules:
+        raise ParseError("--strict needs a rule file: add --rules PATH.")
+    ruleset = RuleSet.load_json(args.rules) if args.rules else None  # fail early on a bad file
+    loaded = load_file(args.file, sheet=_sheet_arg(args.sheet))
+    log = PipelineLog()
+    log.extend(loaded.log)
+    indexed = build_time_index(
+        loaded.df, _pick_time_columns(args.time_col, loaded), _dayfirst_arg(args)
+    )
+    log.extend(indexed.log)
+    if indexed.flags.ambiguous:
+        _print_ambiguity(indexed)
+        return 2
+    out = _render_source(loaded) + _render_index(indexed)
+
+    prof = profile(indexed.df)
+    log.extend([prof.log_entry])
+    value_col = args.value_col
+    if value_col is None:
+        values = detect_value_columns(indexed.df)
+        value_col = values[0] if values else None
+    char = characterize(indexed.df, value_col) if value_col else None
+    if char is not None:
+        log.extend([char.log_entry])
+
+    store = VersionStore(indexed.df, log)
+    proposals = propose_fixes(indexed.df, prof, char)
+    out += _section("Proposed fixes")
+    failed = 0
+    for proposal in proposals:
+        if not proposal.default_selected:
+            out.append(f"[skipped] {proposal.description} (not selected by default)")
+            continue
+        try:
+            version = store.apply(proposal.spec)
+        except DatanautError as exc:
+            failed += 1
+            out.append(f"[failed]  {proposal.description} ({exc})")
+            continue
+        out.append(f"[applied] {proposal.description} -> {version.version_id}")
+    if not proposals:
+        out.append("No fixes proposed: nothing to clean.")
+    out += _render_versions(store)
+
+    rules_ok = True
+    if ruleset is not None:
+        report = validate(store.current(), ruleset)
+        rules_ok = report.ok
+        log.extend([report.log_entry])
+        out += _render_validation(report)
+
+    source = {
+        "filename": loaded.source_info.filename,
+        "sheet": loaded.source_info.sheet,
+        "time_columns": indexed.choices.time_columns,
+        "dayfirst": indexed.choices.dayfirst,
+    }
+    recipe = store.to_recipe(source=source)
+    args.recipe_out.write_text(recipe.to_json(), encoding="utf-8")
+    out += _section("Output")
+    out.append(f"recipe: {args.recipe_out} ({len(recipe.steps)} step(s))")
+    if args.cleaned_out:
+        export = write_safe_csv(store.current(), args.cleaned_out)
+        log.extend([export.log_entry])
+        out.append(f"cleaned data: {args.cleaned_out} ({export.rows:,} rows)")
+        if export.cells_neutralized:
+            out.append(
+                f"note: {export.cells_neutralized} cell(s) starting with =, +, - or @ were "
+                "prefixed with a quote so spreadsheets read them as text"
+            )
+    print("\n".join(out))
+    if failed:
+        return 1
+    return 3 if args.strict and not rules_ok else 0
+
+
+def _run_replay(args: argparse.Namespace) -> int:
+    try:
+        text = args.recipe.read_text(encoding="utf-8-sig")
+    except OSError as exc:
+        raise VersioningError(f"The recipe file '{args.recipe.name}' could not be opened.") from exc
+    recipe = Recipe.from_json(text)
+    source = recipe.source
+    loaded = load_file(args.file, sheet=source.get("sheet"))
+    time_cols = source.get("time_columns") or _pick_time_columns(None, loaded)
+    indexed = build_time_index(loaded.df, time_cols, source.get("dayfirst"))
+    if indexed.flags.ambiguous:
+        _print_ambiguity(indexed)
+        return 2
+    store = replay_recipe(indexed.df, recipe)
+    out = _render_source(loaded) + _render_index(indexed) + _section("Replay")
+    out.append(f"raw data matches the recipe ({recipe.raw_fingerprint[:12]})")
+    for step in recipe.steps:
+        out.append(
+            f"[ok] {step.version_id} {step.op.operation}: "
+            f"fingerprint {step.fingerprint[:12]} verified"
+        )
+    out.append(f"all {len(recipe.steps)} step(s) verified; result {recipe.head_fingerprint[:12]}")
+    if args.cleaned_out:
+        export = write_safe_csv(store.current(), args.cleaned_out)
+        out.append(f"cleaned data: {args.cleaned_out} ({export.rows:,} rows)")
+    print("\n".join(out))
+    return 0
+
+
 def _write_log(args: argparse.Namespace, log: PipelineLog) -> None:
     if args.log_json:
         args.log_json.write_text(log.to_json(), encoding="utf-8")
@@ -231,8 +420,9 @@ def _write_log(args: argparse.Namespace, log: PipelineLog) -> None:
 def main(argv: list[str] | None = None) -> int:
     """Entry point. Returns the process exit code."""
     args = build_parser().parse_args(argv)
+    handlers = {"profile": _run_profile, "clean": _run_clean, "replay": _run_replay}
     try:
-        return _run_profile(args)
+        return handlers[args.command](args)
     except DatanautError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1

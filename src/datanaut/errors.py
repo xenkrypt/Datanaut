@@ -33,3 +33,27 @@ class ParseError(DatanautError):
     default_message = (
         "The file could not be read. It may be empty, corrupted or in an unexpected layout."
     )
+
+
+class CleaningError(DatanautError):
+    """A cleaning operation was given invalid parameters or data it cannot work on."""
+
+    default_message = "This cleaning step could not be applied to the data."
+
+
+class RuleSetError(DatanautError):
+    """A validation rule or rule file is malformed or cannot be used."""
+
+    default_message = "The validation rules are not valid."
+
+
+class VersioningError(DatanautError):
+    """A dataset version or recipe could not be found, rebuilt or read."""
+
+    default_message = "The dataset version could not be rebuilt."
+
+
+class RecipeMismatchError(VersioningError):
+    """Replaying a recipe did not reproduce the fingerprints it was made with."""
+
+    default_message = "Replaying the recipe produced different data than it was made with."
