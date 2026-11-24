@@ -454,6 +454,30 @@ def _stl_fit(values: np.ndarray, period: int) -> np.ndarray:
     return result.trend + result.seasonal
 
 
+def seasonal_fit(
+    filled: np.ndarray, period: int, n_sigmas: float
+) -> tuple[np.ndarray, float, float]:
+    """Robust trend-plus-season fit of a gap-free series.
+
+    Returns (fitted values, residual center, residual scale as a scaled MAD). The fit runs
+    twice: points beyond `n_sigmas` are replaced by the first fit's values and the fit is
+    repeated, so a large spike cannot pull the fit toward itself. Raises CleaningError if the
+    fit fails.
+    """
+
+    def spread(residual: np.ndarray) -> tuple[float, float]:
+        center = float(np.median(residual))
+        return center, max(MAD_TO_SIGMA * float(np.median(np.abs(residual - center))), 1e-12)
+
+    fitted = _stl_fit(filled, period)
+    center, scale = spread(filled - fitted)
+    suspect = np.abs(filled - fitted - center) > n_sigmas * scale
+    if suspect.any():
+        fitted = _stl_fit(np.where(suspect, fitted, filled), period)
+        center, scale = spread(filled - fitted)
+    return fitted, center, scale
+
+
 def _stl_residual(x: pd.Series, period: int, n_sigmas: float) -> _Detection:
     """Seasonal-trend fit; outliers are residuals beyond n_sigmas scaled MADs.
 
@@ -471,17 +495,7 @@ def _stl_residual(x: pd.Series, period: int, n_sigmas: float) -> _Detection:
     positions = np.arange(len(values))
     present = ~np.isnan(values)
     filled = np.interp(positions, positions[present], values[present])  # analysis copy only
-
-    def spread(residual: np.ndarray) -> tuple[float, float]:
-        center = float(np.median(residual))
-        return center, max(MAD_TO_SIGMA * float(np.median(np.abs(residual - center))), 1e-12)
-
-    fitted = _stl_fit(filled, period)
-    center, scale = spread(filled - fitted)
-    suspect = np.abs(filled - fitted - center) > n_sigmas * scale
-    if suspect.any():
-        fitted = _stl_fit(np.where(suspect, fitted, filled), period)
-        center, scale = spread(filled - fitted)
+    fitted, center, scale = seasonal_fit(filled, period, n_sigmas)
     lower, upper = fitted + center - n_sigmas * scale, fitted + center + n_sigmas * scale
     with np.errstate(invalid="ignore"):
         mask = (values < lower) | (values > upper)

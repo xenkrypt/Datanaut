@@ -254,3 +254,63 @@ def variant(request: pytest.FixtureRequest, variants: dict[str, Variant]) -> Var
 @pytest.fixture
 def clean_frame() -> pd.DataFrame:
     return make_clean()
+
+
+# --------------------------------------------------------------------------- Phase 3 dataset
+
+PHASE3_DAYS = 48
+PHASE3_SPIKE_AT = 20 * 24 + 7  # position of the injected spike
+PHASE3_SHIFT_AT = 30 * 24  # position where the level rises
+PHASE3_SPIKE_SIZE = 80.0
+PHASE3_SHIFT_SIZE = 15.0
+PHASE3_TEMP_SLOPE = -2.0  # load falls by 2.0 per degree: a known, clear temperature link
+
+
+@dataclass(frozen=True)
+class Phase3Data:
+    """A seeded hourly series with a known daily pattern, spike, mean shift and weather link."""
+
+    df: pd.DataFrame  # columns: kw
+    weather: pd.DataFrame  # column: temperature_2m
+    csv_bytes: bytes
+    weather_csv: bytes
+    spike_time: pd.Timestamp
+    shift_time: pd.Timestamp
+
+
+def make_phase3(seed: int = 11) -> Phase3Data:
+    rng = np.random.default_rng(seed)
+    n = PHASE3_DAYS * 24
+    idx = pd.date_range("2024-01-01", periods=n, freq="h")
+    t = np.arange(n)
+    hour = idx.hour.to_numpy()
+    wander = np.cumsum(rng.normal(0, 0.2, n))
+    wander -= np.linspace(wander[0], wander[-1], n)
+    temp = 10 + 8 * np.sin(2 * np.pi * (t - 9) / 24) + wander
+    kw = (
+        60
+        + 25 * np.exp(-(((hour - 19) / 2.0) ** 2))  # an evening peak around 19:00
+        + PHASE3_TEMP_SLOPE * (temp - 10)
+        + rng.normal(0, 1.0, n)
+    )
+    kw[PHASE3_SHIFT_AT:] += PHASE3_SHIFT_SIZE
+    kw[PHASE3_SPIKE_AT] += PHASE3_SPIKE_SIZE
+    df = pd.DataFrame({"kw": kw.round(3)}, index=idx)
+    weather = pd.DataFrame({"temperature_2m": temp.round(2)}, index=idx.rename("time"))
+    lines = ["timestamp,kw"] + [f"{ts:%Y-%m-%d %H:%M:%S},{v}" for ts, v in df["kw"].items()]
+    wlines = ["time,temperature_2m"] + [
+        f"{ts:%Y-%m-%dT%H:%M},{v}" for ts, v in weather["temperature_2m"].items()
+    ]
+    return Phase3Data(
+        df=df,
+        weather=weather,
+        csv_bytes=("\n".join(lines) + "\n").encode("utf-8"),
+        weather_csv=("\n".join(wlines) + "\n").encode("utf-8"),
+        spike_time=idx[PHASE3_SPIKE_AT],
+        shift_time=idx[PHASE3_SHIFT_AT],
+    )
+
+
+@pytest.fixture(scope="session")
+def phase3() -> Phase3Data:
+    return make_phase3()

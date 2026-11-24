@@ -1,4 +1,4 @@
-"""Command-line interface: `python -m datanaut profile|clean|replay`.
+"""Command-line interface: `python -m datanaut profile|clean|replay|analyze`.
 
 This module only wires the core functions together and prints their results.
 """
@@ -10,11 +10,16 @@ import sys
 from pathlib import Path
 
 import datanaut
+from datanaut.core.anomalies import stl_anomalies
+from datanaut.core.changepoints import detect_change_points
 from datanaut.core.characterize import SeriesCharacterization, characterize
 from datanaut.core.cleaner import propose_fixes
 from datanaut.core.export import write_safe_csv
+from datanaut.core.findings import generate_findings
+from datanaut.core.forecast import backtest, forecast, recommend_model
 from datanaut.core.loader import LoadResult, load_file
 from datanaut.core.log import PipelineLog
+from datanaut.core.patterns import energy_metrics, load_profile, peak_periods
 from datanaut.core.profiler import DataProfile, profile
 from datanaut.core.timeindex import (
     TimeIndexResult,
@@ -24,7 +29,9 @@ from datanaut.core.timeindex import (
 )
 from datanaut.core.validation import RuleSet, ValidationReport, validate
 from datanaut.core.versioning import Recipe, VersionStore, replay_recipe
-from datanaut.errors import DatanautError, ParseError, VersioningError
+from datanaut.core.weather import read_weather_csv, weather_link
+from datanaut.core.whatif import peak_shift
+from datanaut.errors import AnalysisError, DatanautError, ParseError, VersioningError
 
 # The project title, kept on one line so it can be found with a plain text search.
 _DESCRIPTION = "An AI-Powered Intelligent Platform for Time-Series Data Analysis, Analytics and Insight Generation"  # noqa: E501
@@ -35,7 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="datanaut",
         description=_DESCRIPTION,
-        epilog="Commands: profile (diagnose), clean (fix, record a recipe), replay (verify it).",
+        epilog="Commands: profile, clean (record a recipe), replay (verify), analyze (findings).",
     )
     parser.add_argument("--version", action="version", version=f"datanaut {datanaut.__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -83,6 +90,36 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("recipe", type=Path, help="recipe JSON written by the clean command")
     r.add_argument(
         "--cleaned-out", type=Path, metavar="PATH", help="write the rebuilt data as CSV here"
+    )
+
+    a = sub.add_parser(
+        "analyze",
+        help="clean with the default fixes, then find patterns, anomalies, changes and a forecast",
+        description=(
+            "Load a file, apply the default-selected fixes, run the analysis modules on one "
+            "column and print the ranked findings. Findings describe association, not cause."
+        ),
+    )
+    a.add_argument("file", type=Path, help="path to a CSV or Excel (.xlsx) file")
+    a.add_argument("--column", required=True, help="numeric column to analyze")
+    a.add_argument("--consumption", action="store_true", help="the column is energy consumption")
+    a.add_argument("--sheet", help="Excel sheet name or number (default: the first sheet)")
+    a.add_argument(
+        "--time-col",
+        action="append",
+        metavar="COL",
+        help="timestamp column (give twice for date + time)",
+    )
+    order = a.add_mutually_exclusive_group()
+    order.add_argument("--dayfirst", action="store_true", help="read 01/02/2024 as 1 February")
+    order.add_argument("--monthfirst", action="store_true", help="read 01/02/2024 as 2 January")
+    a.add_argument("--lat", type=float, help="site latitude (recorded; nothing is downloaded)")
+    a.add_argument("--lon", type=float, help="site longitude (recorded; nothing is downloaded)")
+    a.add_argument(
+        "--weather-file",
+        type=Path,
+        metavar="CSV",
+        help="local weather CSV: first column time, other columns numeric",
     )
     return parser
 
@@ -412,6 +449,112 @@ def _run_replay(args: argparse.Namespace) -> int:
     return 0
 
 
+def _attempt(label: str, notes: list[str], call):  # type: ignore[no-untyped-def]
+    """Run one analysis; if it cannot run on this data, say why instead of stopping."""
+    try:
+        return call()
+    except AnalysisError as exc:
+        notes.append(f"[skipped] {label}: {exc}")
+        return None
+
+
+def _run_analyze(args: argparse.Namespace) -> int:
+    if (args.lat is None) != (args.lon is None):
+        raise ParseError("Give both --lat and --lon, or neither.")
+    loaded = load_file(args.file, sheet=_sheet_arg(args.sheet))
+    log = PipelineLog()
+    log.extend(loaded.log)
+    indexed = build_time_index(
+        loaded.df, _pick_time_columns(args.time_col, loaded), _dayfirst_arg(args)
+    )
+    log.extend(indexed.log)
+    if indexed.flags.ambiguous:
+        _print_ambiguity(indexed)
+        return 2
+    prof = profile(indexed.df)
+    char = characterize(indexed.df, args.column)
+    log.extend([prof.log_entry, char.log_entry])
+    out = _render_source(loaded) + _render_index(indexed)
+
+    store = VersionStore(indexed.df, log)
+    out += _section("Default cleaning")
+    for proposal in propose_fixes(indexed.df, prof, char):
+        if proposal.default_selected:
+            try:
+                out.append(
+                    f"[applied] {proposal.description} -> {store.apply(proposal.spec).version_id}"
+                )
+            except DatanautError as exc:
+                out.append(f"[failed]  {proposal.description} ({exc})")
+    df, period = store.current(), char.seasonal_period
+    out.append(f"analyzing {len(df):,} rows; seasonal period: {period or 'none detected'}")
+
+    notes: list[str] = []
+    column = args.column
+    by_hour = _attempt("load profile", notes, lambda: load_profile(df, column, "hour"))
+    by_day = _attempt("weekday profile", notes, lambda: load_profile(df, column, "weekday"))
+    peaks = _attempt("peak periods", notes, lambda: peak_periods(df, column))
+    metrics = _attempt(
+        "energy metrics", notes, lambda: energy_metrics(df, column, consumption=args.consumption)
+    )
+    anomalies = (
+        _attempt("anomalies", notes, lambda: stl_anomalies(df, column, period)) if period else None
+    )
+    if not period:
+        notes.append("[skipped] anomalies: no seasonal period was detected to model.")
+    changes = _attempt(
+        "change points", notes, lambda: detect_change_points(df, column, period=period)
+    )
+    horizon = period or 24
+    bt = _attempt(
+        "forecast benchmark",
+        notes,
+        lambda: backtest(
+            df, column, ["seasonal_naive", "holt_winters"], horizon=horizon, period=period
+        ),
+    )
+    fc = None
+    if bt is not None and (rec := recommend_model(bt)).model:
+        fc = _attempt(
+            "forecast",
+            notes,
+            lambda: forecast(df, column, rec.model, horizon, period, backtest_result=bt),
+        )
+    shift = (
+        _attempt("what-if", notes, lambda: peak_shift(df, column, 0.2))
+        if args.consumption
+        else None
+    )
+    link = None
+    if args.weather_file:
+        weather_df = read_weather_csv(args.weather_file)
+        link = _attempt("weather link", notes, lambda: weather_link(df, column, weather_df))
+    elif args.lat is not None:
+        notes.append("[note] location recorded; no weather is downloaded here. Add --weather-file.")
+
+    results = [by_hour, by_day, peaks, metrics, anomalies, changes, bt, fc, shift, link]
+    out += _section("Analyses")
+    out += [f"- {r.log_entry.summary}" for r in results if r is not None]
+    out += notes
+    report = generate_findings(
+        peaks=peaks,
+        metrics=metrics,
+        weekday_profile=by_day,
+        weather=link,
+        anomalies=anomalies,
+        change_points=changes,
+        backtest=bt,
+    )
+    log.extend([r.log_entry for r in results if r is not None] + [report.log_entry])
+    out += _section("Findings (ranked; associations in the data, not causes)")
+    for i, f in enumerate(report.findings, 1):
+        out += [f"{i}. [{f.score:.2f}] {f.title}", f"   {f.statement}"]
+    if not report.findings:
+        out.append("No findings: the data shows no pattern strong enough to report.")
+    print("\n".join(out))
+    return 0
+
+
 def _write_log(args: argparse.Namespace, log: PipelineLog) -> None:
     if args.log_json:
         args.log_json.write_text(log.to_json(), encoding="utf-8")
@@ -420,7 +563,12 @@ def _write_log(args: argparse.Namespace, log: PipelineLog) -> None:
 def main(argv: list[str] | None = None) -> int:
     """Entry point. Returns the process exit code."""
     args = build_parser().parse_args(argv)
-    handlers = {"profile": _run_profile, "clean": _run_clean, "replay": _run_replay}
+    handlers = {
+        "profile": _run_profile,
+        "clean": _run_clean,
+        "replay": _run_replay,
+        "analyze": _run_analyze,
+    }
     try:
         return handlers[args.command](args)
     except DatanautError as exc:

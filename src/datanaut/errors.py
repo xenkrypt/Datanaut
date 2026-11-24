@@ -57,3 +57,15 @@ class RecipeMismatchError(VersioningError):
     """Replaying a recipe did not reproduce the fingerprints it was made with."""
 
     default_message = "Replaying the recipe produced different data than it was made with."
+
+
+class AnalysisError(DatanautError):
+    """An analysis could not be run on this data (too short, wrong columns, no time index)."""
+
+    default_message = "This analysis could not be run on the data."
+
+
+class WeatherError(AnalysisError):
+    """Weather data could not be requested, read or lined up with the series."""
+
+    default_message = "The weather data could not be used."
