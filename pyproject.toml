@@ -17,6 +17,8 @@ dependencies = [
     "pydantic>=2",
     "scikit-learn",
     "ruptures",
+    "streamlit",
+    "plotly",
 ]
 
 [project.optional-dependencies]
