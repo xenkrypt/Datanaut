@@ -1,7 +1,8 @@
 """CSV export that is safe to open in a spreadsheet.
 
-Spreadsheet programs treat a cell that starts with =, +, - or @ as a formula, so a malicious
-or careless text value (or column name) could run when the file is opened. Such text is
+Spreadsheet programs treat a cell that starts with =, +, - or @ (even after leading blanks) as a
+formula, so a malicious or careless text value (or column name) could run when the file is
+opened. Such text is
 prefixed with a single quote, which makes the spreadsheet show it as plain text. Numbers,
 booleans and dates are never touched. The number of changed cells is always reported.
 """
@@ -31,9 +32,20 @@ class ExportResult:
     log_entry: StepLog
 
 
+LEADING_BLANKS = " \t\r\n\v\f\u00a0\ufeff"
+"""Blanks a spreadsheet may skip before it decides a cell is a formula."""
+
+
+def is_formula_like(value: str) -> bool:
+    """Would a spreadsheet read this text as a formula? Leading blanks do not hide it."""
+    if value.startswith(("\t", "\r")):
+        return True
+    return value.lstrip(LEADING_BLANKS).startswith(("=", "+", "-", "@"))
+
+
 def neutralize_text(value: str) -> str:
     """Prefix text that a spreadsheet would read as a formula with a single quote."""
-    return "'" + value if value.startswith(DANGEROUS_PREFIXES) else value
+    return "'" + value if is_formula_like(value) else value
 
 
 def _neutralize_series(s: pd.Series) -> tuple[pd.Series, int]:
@@ -41,9 +53,11 @@ def _neutralize_series(s: pd.Series) -> tuple[pd.Series, int]:
     if present.empty:
         return s, 0
     if infer_dtype(present, skipna=True) == "string":
-        flagged = s.str.startswith(DANGEROUS_PREFIXES, na=False)
+        flagged = s.str.startswith(("\t", "\r"), na=False) | s.str.lstrip(
+            LEADING_BLANKS
+        ).str.startswith(("=", "+", "-", "@"), na=False)
     else:  # mixed cells: only the strings are text
-        flagged = s.map(lambda v: isinstance(v, str) and v.startswith(DANGEROUS_PREFIXES))
+        flagged = s.map(lambda v: isinstance(v, str) and is_formula_like(v))
     flagged = flagged.astype(bool)
     if not flagged.any():
         return s, 0

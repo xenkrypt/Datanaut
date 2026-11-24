@@ -16,6 +16,7 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 
+from datanaut import limits
 from datanaut.core.anomalies import (
     compare_detectors,
     multivariate_anomalies,
@@ -68,6 +69,7 @@ def run(state: WizardState, name: str, fn: Callable[[], Any], **params: Any) -> 
 
     started = perf_counter()
     result, seconds = state.get_or_compute(key, timed)
+    state.latest[(state.fingerprint, name)] = result
     if not cached and hasattr(result, "log_entry"):
         state.log.extend([result.log_entry])
     return Run(result, seconds if cached else perf_counter() - started, cached)
@@ -79,6 +81,7 @@ def peek(state: WizardState, name: str, **params: Any) -> Run | None:
     if key not in state.cache:
         return None
     result, seconds = state.cache.get_or_compute(key, lambda: None)
+    state.latest[(state.fingerprint, name)] = result
     return Run(result, seconds, True)
 
 
@@ -164,6 +167,7 @@ def stl(state: WizardState, threshold: float = 3.5) -> Run:
             "No repeating pattern was detected in this column, so seasonal anomaly detection "
             "cannot run."
         )
+    limits.check_seasonal_work(int(series(state).notna().sum()), p)
     return run(
         state,
         "stl",
@@ -220,6 +224,10 @@ def stl_components(state: WizardState) -> tuple[pd.Series, pd.Series] | None:
     """The series and its robust trend-plus-seasonal fit on an even grid, for plotting."""
     p = period(state)
     if not p:
+        return None
+    try:
+        limits.check_seasonal_work(int(series(state).notna().sum()), p)
+    except AnalysisError:
         return None
     grid, _ = to_regular_grid(series(state).replace([np.inf, -np.inf], np.nan))
     if len(grid) < 2 * p + 2 or grid.isna().mean() > 0.5:

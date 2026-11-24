@@ -110,6 +110,7 @@ def run_suggestions(state: WizardState, client: LLMClient) -> SuggestionOutcome:
         build_payload(state), known_findings(state), state.profile, state.log, client
     )
     state.ai_suggestions = outcome
+    state.ai_suggestions_fingerprint = state.fingerprint
     return outcome
 
 

@@ -19,6 +19,8 @@ dependencies = [
     "ruptures",
     "streamlit",
     "plotly",
+    "fpdf2",
+    "matplotlib",
 ]
 
 [project.optional-dependencies]
@@ -26,6 +28,7 @@ dev = [
     "pytest",
     "hypothesis",
     "ruff",
+    "pypdf",
 ]
 
 [tool.setuptools.dynamic]

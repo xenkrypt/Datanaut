@@ -169,8 +169,9 @@ def test_a_failing_fetch_function_becomes_a_weather_error():
     def broken(url):
         raise ConnectionError("no route to host")
 
-    with pytest.raises(WeatherError, match="request failed: no route to host"):
+    with pytest.raises(WeatherError, match=r"request failed \(ConnectionError\)") as err:
         fetch_open_meteo(0, 0, "2024-01-01", "2024-01-01", ["temperature_2m"], broken)
+    assert "no route to host" not in err.value.message  # the failure's own text is never echoed
 
 
 def test_the_module_contains_no_network_code():

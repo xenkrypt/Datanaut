@@ -1,8 +1,9 @@
 import pytest
 
+from datanaut import limits
 from datanaut.errors import FileTooLargeError, ParseError, UnsupportedFormatError
+from datanaut.limits import MAX_COLUMNS, check_dimensions
 from datanaut.ui import actions, display
-from datanaut.ui.limits import MAX_COLUMNS, check_dimensions
 from datanaut.ui.state import WizardState
 
 AMBIGUOUS = b"when,v\n01/02/2024,1\n03/04/2024,2\n05/06/2024,3\n07/08/2024,4\n"
@@ -105,7 +106,7 @@ def test_limits_are_enforced_in_code(monkeypatch):
 
     with pytest.raises(FileTooLargeError, match="columns"):
         check_dimensions(pd.DataFrame([[0] * (MAX_COLUMNS + 1)]))
-    monkeypatch.setattr(actions, "MAX_UPLOAD_BYTES", 10)
+    monkeypatch.setattr(limits, "MAX_UPLOAD_BYTES", 10)
     with pytest.raises(FileTooLargeError, match="limit"):
         actions.load_upload(WizardState(), b"x" * 11, "a.csv")
 

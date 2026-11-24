@@ -15,6 +15,7 @@ from typing import Any
 import pandas as pd
 
 import datanaut
+from datanaut import limits
 from datanaut.core.loader import load_file
 from datanaut.core.profiler import DataProfile, profile
 from datanaut.core.timeindex import (
@@ -25,7 +26,6 @@ from datanaut.core.timeindex import (
 )
 from datanaut.core.versioning import VersionStore
 from datanaut.errors import DatanautError, FileTooLargeError, ParseError, UnsupportedFormatError
-from datanaut.ui.limits import MAX_UPLOAD_BYTES, check_dimensions
 from datanaut.ui.state import WizardState, cache_key
 
 _LOG = logging.getLogger("datanaut.ui")
@@ -85,15 +85,12 @@ def load_upload(
     state: WizardState, data: bytes, filename: str | None, sheet: str | int | None = None
 ) -> bool:
     """Load uploaded bytes into the state. Returns False (and does nothing) if unchanged."""
-    if len(data) > MAX_UPLOAD_BYTES:
-        raise FileTooLargeError(
-            f"This file is larger than the {MAX_UPLOAD_BYTES / 1e6:g} MB limit."
-        )
+    limits.check_upload_size(len(data))
     digest = hashlib.sha256(data).hexdigest()
     if digest == state.source_digest and sheet == state.sheet and state.loaded is not None:
         return False
-    loaded = load_file(data, filename, max_bytes=MAX_UPLOAD_BYTES, sheet=sheet)
-    check_dimensions(loaded.df)
+    loaded = load_file(data, filename, max_bytes=limits.MAX_UPLOAD_BYTES, sheet=sheet)
+    limits.check_dimensions(loaded.df)
     chosen = loaded.source_info.sheet if sheet is not None else None
     state.set_loaded(loaded, data, digest, chosen)
     state.mark_done("Upload")

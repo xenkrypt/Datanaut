@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from datanaut import limits
+
 # --- providers ----------------------------------------------------------------------------
 GEMINI_MODEL = "gemini-3.5-flash-lite"
 GROQ_MODEL = "llama-3.3-70b-versatile"
@@ -23,7 +25,7 @@ MAX_OUTPUT_TOKENS = 700
 TEMPERATURE = 0.0
 
 # --- session limits -----------------------------------------------------------------------
-SESSION_QUESTION_CAP = 20
+SESSION_QUESTION_CAP = limits.AI_QUESTION_CAP
 MIN_SECONDS_BETWEEN_CALLS = 2.0
 MAX_REPAIR_RETRIES = 1
 MAX_CALLS_PER_QUESTION = 6

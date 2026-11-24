@@ -1,11 +1,20 @@
 [server]
-maxUploadSize = 50
+maxUploadSize = 35  # MB; must match MAX_UPLOAD_BYTES in src/datanaut/limits.py
+maxMessageSize = 100
+headless = true
+enableXsrfProtection = true
+fileWatcherType = "none"
+runOnSave = false
 
 [browser]
 gatherUsageStats = false
 
 [client]
 toolbarMode = "minimal"
+showErrorDetails = "none"
+
+[logger]
+level = "info"
 
 [theme]
 base = "dark"

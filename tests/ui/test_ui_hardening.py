@@ -6,8 +6,9 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
+from datanaut import limits
 from datanaut.errors import FileTooLargeError
-from datanaut.ui import actions, limits
+from datanaut.ui import actions
 from datanaut.ui.state import STEPS, WizardState
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -125,9 +126,16 @@ def _module_level_containers(path: Path) -> set[str]:
 def test_there_is_no_module_level_mutable_state_beyond_read_only_lookup_tables():
     files = list((ROOT / "src" / "datanaut" / "ui").rglob("*.py")) + [ROOT / "app.py"]
     found = set().union(*(_module_level_containers(f) for f in files))
-    assert found <= {"_PREREQUISITES", "_ICONS", "_PAGES", "_MARGIN", "_BASE", "_SCALE", "_KIND"}, (
-        found
-    )  # fixed tables, never changed
+    assert found <= {
+        "_PREREQUISITES",
+        "_ICONS",
+        "_PAGES",
+        "_MARGIN",
+        "_BASE",
+        "_SCALE",
+        "_KIND",
+        "_KINDS",
+    }, found  # fixed tables, never changed
 
 
 def test_only_app_and_pages_import_streamlit():
@@ -153,6 +161,7 @@ def test_the_formal_title_is_only_where_it_was_allowed():
         "app.py",
         "src/datanaut/__init__.py",
         "src/datanaut/cli.py",
+        "src/datanaut/report/model.py",  # the report cover page
     }
 
 

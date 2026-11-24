@@ -167,7 +167,10 @@ def fetch_open_meteo(
     except WeatherError:
         raise
     except Exception as exc:  # the caller's fetch can fail in any way (network, HTTP, JSON)
-        raise WeatherError(f"The weather request failed: {exc}") from exc
+        raise WeatherError(
+            f"The weather request failed ({type(exc).__name__}). "
+            "Check the connection, or use a weather file."
+        ) from exc
     return _parse_response(payload, list(variables))
 
 

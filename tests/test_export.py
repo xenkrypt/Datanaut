@@ -8,6 +8,7 @@ from hypothesis import strategies as st
 
 from datanaut.core.export import (
     DANGEROUS_PREFIXES,
+    is_formula_like,
     neutralize_formulas,
     neutralize_text,
     write_safe_csv,
@@ -20,10 +21,15 @@ def test_each_dangerous_prefix_is_quoted(prefix):
 
 
 @pytest.mark.parametrize(
-    "text", ["", "plain", "a=b", "x-y", "1+1", " =1", "'=already", "é=", "名前"]
+    "text", ["", "plain", "a=b", "x-y", "1+1", "a =1", "'=already", "é=", "名前"]
 )
 def test_safe_text_is_left_alone(text):
     assert neutralize_text(text) == text
+
+
+@pytest.mark.parametrize("text", [" =1", "  +cmd", "\u00a0@x", "\n-1", " \t =x"])
+def test_blanks_in_front_do_not_hide_a_formula(text):
+    assert neutralize_text(text) == "'" + text
 
 
 def _frame():
@@ -116,7 +122,7 @@ def test_written_csv_has_no_cell_that_starts_with_a_formula_character(tmp_path):
 def test_property_no_text_cell_starts_dangerously_afterwards(values):
     df = pd.DataFrame({"t": values})
     safe, count = neutralize_formulas(df)
-    assert not any(v.startswith(DANGEROUS_PREFIXES) for v in safe["t"])
-    assert count == sum(v.startswith(DANGEROUS_PREFIXES) for v in values)
+    assert not any(is_formula_like(v) for v in safe["t"])
+    assert count == sum(is_formula_like(v) for v in values)
     for before, after in zip(values, safe["t"], strict=True):
         assert after == before or after == "'" + before

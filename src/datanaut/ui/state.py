@@ -30,6 +30,7 @@ STEPS: tuple[str, ...] = (
     "Analyze",
     "Insights",
     "Ask",
+    "Report",
 )
 
 _PREREQUISITES: dict[str, tuple[str, ...]] = {
@@ -40,8 +41,9 @@ _PREREQUISITES: dict[str, tuple[str, ...]] = {
     "Analyze": ("Map columns",),
     "Insights": ("Map columns",),
     "Ask": ("Map columns",),
+    "Report": ("Map columns",),
 }
-_MAPPING_DEPENDENTS = ("Map columns", "Clean", "Analyze", "Insights", "Ask")
+_MAPPING_DEPENDENTS = ("Map columns", "Clean", "Analyze", "Insights", "Ask", "Report")
 CACHE_SIZE = 24
 
 Level = Literal["info", "success", "warning", "error"]
@@ -122,6 +124,10 @@ class WizardState:
     ai_history: list[tuple[str, AnalystAnswer]] = field(default_factory=list)
     ai_suggestions: SuggestionOutcome | None = None
     ai_summaries: dict[str, SummaryOutcome] = field(default_factory=dict)
+    latest: dict[tuple[str, str], Any] = field(default_factory=dict)
+    """The most recent analysis result of each kind, by (dataset fingerprint, name)."""
+    ai_suggestions_fingerprint: str = ""  # the data the AI suggestions were made for
+    report_pdf: tuple[str, bytes] | None = None  # the last PDF, in memory only
     base_log_length: int = 0  # log entries that exist before any time index was built
 
     # --- steps ---------------------------------------------------------------------------
@@ -201,6 +207,7 @@ class WizardState:
         self.time_columns, self.dayfirst = [], None
         self.value_columns, self.consumption = [], {}
         self.suggestions, self.report, self.report_fingerprint = None, None, ""
+        self.latest, self.report_pdf = {}, None
         self.completed -= set(_MAPPING_DEPENDENTS)
 
     def invalidate_mapping(self, reason: str) -> None:

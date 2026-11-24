@@ -3,20 +3,31 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 import streamlit as st
 
-from datanaut.ui import actions, overview, theme
-from datanaut.ui.pages import (
+try:
+    import datanaut  # noqa: F401
+except ImportError:  # an unpackaged checkout, as on Streamlit Community Cloud: use ./src
+    sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+
+from datanaut import startup  # noqa: E402
+from datanaut.ai import config as ai_config  # noqa: E402
+from datanaut.ui import actions, overview, theme  # noqa: E402
+from datanaut.ui.pages import (  # noqa: E402
     analyze,
     ask,
     clean,
     insights,
     map_columns,
     profile,
+    report,
     sidebar,
     upload,
 )
-from datanaut.ui.state import STEPS, WizardState
+from datanaut.ui.state import STEPS, WizardState  # noqa: E402
 
 st.set_page_config(
     page_title="Datanaut - An AI-Powered Intelligent Platform for Time-Series Data Analysis, Analytics and Insight Generation",  # noqa: E501
@@ -31,6 +42,7 @@ _PAGES = {
     "Analyze": analyze,
     "Insights": insights,
     "Ask": ask,
+    "Report": report,
 }
 
 
@@ -39,6 +51,18 @@ def _state() -> WizardState:
     if "wizard" not in st.session_state:
         st.session_state["wizard"] = WizardState()
     return st.session_state["wizard"]
+
+
+def _notices() -> list[startup.Notice]:
+    """What is missing at start-up, checked once per session (keys are only looked for)."""
+    if "startup_notices" not in st.session_state:
+        present: dict[str, str] = {}
+        try:
+            present = {n: "set" for n in ai_config.KEY_NAMES.values() if n in st.secrets}
+        except Exception:  # no secrets file is the normal case
+            present = {}
+        st.session_state["startup_notices"] = startup.check_environment(secrets=present)
+    return st.session_state["startup_notices"]
 
 
 def _start_over() -> None:
@@ -65,6 +89,9 @@ def main() -> None:
     if board is not None:
         st.markdown(board, unsafe_allow_html=True)
     messages = st.container()
+    for notice in _notices():
+        if notice.level == "warning":
+            messages.warning(f"{notice.feature}: {notice.message}")
     page = _PAGES.get(state.step)
     if page is None:  # an unknown step can only come from a corrupted session
         state.step = "Upload"

@@ -201,10 +201,10 @@ def diff_examples(diff: VersionDiff) -> pd.DataFrame:
     )
 
 
-def cleaned_csv(state: WizardState) -> bytes:
-    """The working version as formula-safe CSV bytes (nothing is written to disk)."""
+def cleaned_csv(state: WizardState, version_id: str | None = None) -> bytes:
+    """A version (default: the working one) as formula-safe CSV bytes; nothing is written."""
     assert state.store is not None
-    safe, _ = neutralize_formulas(state.store.current())
+    safe, _ = neutralize_formulas(state.store.get(version_id or state.store.head))
     return safe.to_csv(lineterminator="\n").encode("utf-8")
 
 
@@ -212,7 +212,7 @@ def log_json(state: WizardState) -> str:
     return state.log.to_json()
 
 
-def recipe_json(state: WizardState) -> str:
+def recipe_json(state: WizardState, version_id: str | None = None) -> str:
     assert state.store is not None and state.indexed is not None and state.loaded is not None
     source = {
         "filename": state.loaded.source_info.filename,
@@ -220,4 +220,4 @@ def recipe_json(state: WizardState) -> str:
         "time_columns": state.indexed.choices.time_columns,
         "dayfirst": state.indexed.choices.dayfirst,
     }
-    return state.store.to_recipe(source=source).to_json()
+    return state.store.to_recipe(version_id, source=source).to_json()

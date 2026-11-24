@@ -62,7 +62,7 @@ def page_text(at: AppTest) -> str:
 
 
 def test_ask_is_a_step_after_insights_and_needs_the_mapping_first():
-    assert STEPS[-2:] == ("Insights", "Ask")
+    assert STEPS[-3:] == ("Insights", "Ask", "Report")
     s = WizardState()
     assert not s.is_reachable("Ask")
     s.mark_done("Upload")
@@ -161,6 +161,8 @@ def test_a_rate_limit_is_shown_clearly_and_the_session_carries_on():
 
 
 def test_no_key_means_a_helpful_note_and_no_chat_while_the_rest_works(monkeypatch):
+    # ignore any real keys on this machine (a secrets file, the environment)
+    monkeypatch.setattr(ask, "provider_keys", lambda secrets=None, env=None: {})
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     at = mapped()

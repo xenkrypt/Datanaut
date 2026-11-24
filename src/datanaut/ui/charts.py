@@ -10,8 +10,8 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from datanaut.limits import DISPLAY_POINT_LIMIT
 from datanaut.ui.display import downsample_minmax
-from datanaut.ui.limits import DISPLAY_POINT_LIMIT
 
 
 def missingness_heatmap(matrix: pd.DataFrame, title: str = "Where values are missing") -> go.Figure:

@@ -1,0 +1,64 @@
+# Checks on every push and pull request: lint, formatting and the full test suite on Python 3.11
+# and 3.12, plus a separate audit of the pinned runtime dependencies for known vulnerabilities.
+# No test uses the network. pip-audit is installed only inside the audit job and is not a
+# dependency of the project.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      allow_vulnerabilities:
+        description: "Let the dependency audit pass even if it finds known vulnerabilities"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
+      - name: Install the project with its dev tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check .
+      - name: Formatting
+        run: ruff format --check .
+      - name: Tests (UI, report and audit tests included)
+        run: pytest -q
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    # A found vulnerability fails this job. Run the workflow by hand with allow_vulnerabilities
+    # ticked to let it pass for a known, accepted case.
+    continue-on-error: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_vulnerabilities }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install pip-audit (in this job only)
+        run: python -m pip install pip-audit
+      - name: Audit the pinned runtime dependencies
+        run: pip-audit -r requirements.txt

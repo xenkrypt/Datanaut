@@ -29,6 +29,7 @@ from pydantic import BaseModel, Field
 
 from datanaut.core.log import PipelineLog, StepLog
 from datanaut.errors import FileTooLargeError, ParseError, UnsupportedFormatError
+from datanaut.limits import MAX_UPLOAD_BYTES
 
 MISSING_MARKERS: frozenset[str] = frozenset({"", "?", "na", "n/a", "null", "-", "--"})
 """Lower-cased cell texts treated as missing (compared after stripping whitespace)."""
@@ -123,7 +124,7 @@ class _Numeric:
 def load_file(
     source: str | os.PathLike[str] | bytes | bytearray | BinaryIO,
     filename: str | None = None,
-    max_bytes: int = 50_000_000,
+    max_bytes: int = MAX_UPLOAD_BYTES,
     *,
     sheet: str | int | None = None,
     max_unpacked_bytes: int | None = None,

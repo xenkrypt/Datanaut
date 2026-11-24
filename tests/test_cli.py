@@ -44,7 +44,13 @@ def test_title_appears_in_exactly_three_places():
         for p in [ROOT / "pyproject.toml", *sorted((ROOT / "src").rglob("*.py"))]
         if title in " ".join(p.read_text(encoding="utf-8").split())
     ]
-    assert hits == ["pyproject.toml", "src/datanaut/__init__.py", "src/datanaut/cli.py"]
+    # the three places from the start, plus the report's cover page (allowed in the report phase)
+    assert hits == [
+        "pyproject.toml",
+        "src/datanaut/__init__.py",
+        "src/datanaut/cli.py",
+        "src/datanaut/report/model.py",
+    ]
 
 
 def test_profile_sample_prints_summary_and_log(capsys, tmp_path):
