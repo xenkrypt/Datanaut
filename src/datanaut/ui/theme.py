@@ -172,6 +172,10 @@ h2, h3 { letter-spacing: -.02em; font-weight: 600; }
   box-shadow: 0 14px 34px -16px rgba(124,156,255,.6);
 }
 [data-testid="stMetricValue"] { font-variant-numeric: tabular-nums; letter-spacing: -.02em; animation: dn-rise .7s var(--dn-ease) both; }
+[data-testid="stMetricValue"], [data-testid="stMetricValue"] > div { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.2; font-size: 1.7rem; }
+[data-testid="stMetricLabel"], [data-testid="stMetricLabel"] p { white-space: normal; overflow: visible; text-overflow: clip; }
+[data-testid="stCheckbox"] label, [data-testid="stCheckbox"] label p, [data-testid="stCheckbox"] label > div { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+[data-testid="stCheckbox"] label { align-items: flex-start; }
 [data-testid="stVerticalBlockBorderWrapper"] { border-color: var(--dn-line) !important; border-radius: 16px;
   background: var(--dn-panel); transition: border-color .3s var(--dn-ease), box-shadow .3s var(--dn-ease); }
 [data-testid="stVerticalBlockBorderWrapper"]:hover { border-color: rgba(124,156,255,.35) !important; }
@@ -210,7 +214,8 @@ h2, h3 { letter-spacing: -.02em; font-weight: 600; }
 .dn-count::before { content: counter(a); }
 .dn-count.dn-dec::after { content: "." counter(b, decimal-leading-zero); }
 @keyframes dn-count { from { --a: 0; --b: 0; } to { --a: var(--ta); --b: var(--tb, 0); } }
-.dn-ring { position: absolute; right: 12px; bottom: 12px; width: 50px; height: 50px; transform: rotate(-90deg); }
+.dn-ring { position: absolute; right: 10px; bottom: 10px; width: 34px; height: 34px; transform: rotate(-90deg); }
+.dn-card:has(.dn-ring) .dn-value { font-size: 1.7rem; padding-right: 36px; }
 .dn-ring circle { fill: none; stroke-width: 3.4; stroke-linecap: round; }
 .dn-ring .t { stroke: rgba(255,255,255,.08); }
 .dn-ring .v { stroke-dasharray: 100; stroke-dashoffset: 100; animation: dn-draw 1.6s var(--dn-ease) forwards;
