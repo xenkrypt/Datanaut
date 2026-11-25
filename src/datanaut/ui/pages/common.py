@@ -9,6 +9,26 @@ from datanaut.ui.analysis import Run
 from datanaut.ui.state import WizardState
 
 
+def _plain(value) -> str:
+    """A value as short readable text (no braces or quotes)."""
+    if value is None:
+        return "not set"
+    if isinstance(value, dict):
+        return "; ".join(f"{_label(k)}: {_plain(v)}" for k, v in value.items())
+    if isinstance(value, (list, tuple)):
+        return ", ".join(_plain(v) for v in value) or "none"
+    return str(value)
+
+
+def _label(key) -> str:
+    return str(key).replace("_", " ")
+
+
+def params_markdown(params) -> str:
+    """Parameters as a bullet list for people, instead of a raw JSON tree."""
+    return "\n".join(f"- **{_label(k)}:** {_plain(v)}" for k, v in dict(params).items())
+
+
 def evidence_box(result) -> None:
     """The evidence behind a result: columns, time range, observations and method."""
     ev = result.evidence
@@ -18,7 +38,7 @@ def evidence_box(result) -> None:
         st.write(f"**Observations:** {ev.n_observations:,}")
         st.write(f"**Method:** {ev.method}")
         if ev.parameters:
-            st.json(ev.parameters, expanded=False)
+            st.markdown("**Settings used**\n" + params_markdown(ev.parameters))
 
 
 def run_button(

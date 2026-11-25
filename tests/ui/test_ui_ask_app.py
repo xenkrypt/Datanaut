@@ -129,7 +129,7 @@ def test_the_screen_shows_the_answer_text_evidence_and_counter():
     assert "Answered by scripted" in shown
     assert any(e.label == "Evidence" for e in at.expander)
     assert "Questions used: 1 of 20" in shown
-    assert any("global_active_power" in str(j.value) for j in at.json)  # the query is visible
+    assert any("global_active_power" in m.value for m in at.markdown)  # the query is visible
 
 
 def test_the_cap_message_appears_after_the_cap_and_the_model_is_not_called_again():

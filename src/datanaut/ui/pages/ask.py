@@ -7,7 +7,7 @@ import streamlit as st
 from datanaut.ai import config
 from datanaut.ai.schemas import AnalystAnswer
 from datanaut.ui import actions, ask, charts
-from datanaut.ui.pages.common import ai_client, ai_configured
+from datanaut.ui.pages.common import ai_client, ai_configured, params_markdown
 from datanaut.ui.state import WizardState
 
 STEP = "Ask"
@@ -126,7 +126,7 @@ def _evidence(answer: AnalystAnswer) -> None:
         st.write(f"**Observations:** {card.n_observations:,}")
         st.write(f"**Method:** {card.method}")
         st.caption("The query the AI chose (checked against an allowlist, then run by Python):")
-        st.json(card.query, expanded=False)
+        st.markdown(params_markdown(card.query))
         st.dataframe(
             [dict(zip(card.table.columns, row, strict=True)) for row in card.table.rows],
             hide_index=True,
